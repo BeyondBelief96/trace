@@ -11,7 +11,7 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    pub fn new(center: Vec3, radius: f64) -> Self {
+    pub const fn new(center: Vec3, radius: f64) -> Self {
         Self { center, radius }
     }
 }
