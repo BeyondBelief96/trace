@@ -27,6 +27,7 @@ fn main() -> std::io::Result<()> {
     let camera = CameraBuilder::new()
         .aspect_ratio(16.0 / 9.0)
         .image_width(400)
+        .samples_per_pixel(100)
         .build();
 
     // Render the image
