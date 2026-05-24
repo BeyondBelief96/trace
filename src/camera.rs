@@ -218,8 +218,9 @@ impl Camera {
             return Color::new(0.0, 0.0, 0.0);
         }
 
-        if let Some(rec) = world.hit(r, Interval::new(0.0, f64::INFINITY)) {
-            let direction = Vec3::random_on_hemisphere(&rec.normal);
+        // 0.001 is to avoid shadow acne.
+        if let Some(rec) = world.hit(r, Interval::new(0.001, f64::INFINITY)) {
+            let direction = rec.normal + Vec3::random_unit_vector();
             return 0.5 * Self::ray_color(&Ray::new(rec.point, direction), world, depth - 1);
         }
 

@@ -17,6 +17,14 @@ use std::io::{self, Write};
 /// are not gamma-corrected and are not clamped until conversion to bytes.
 pub type Color = Vec3;
 
+pub fn linear_to_gamma(linear_component: f64) -> f64 {
+    if linear_component <= 0.0 {
+        return 0.0;
+    }
+
+    linear_component.sqrt()
+}
+
 /// Writes a single pixel to `writer` in PPM (P3) "R G B\n" text format.
 ///
 /// Components are clamped to the half-open intensity range `[0, 0.999]`
@@ -28,6 +36,10 @@ pub fn write_color(writer: &mut impl Write, pixel_color: Color) -> io::Result<()
     let r = intensity.clamp(pixel_color.x);
     let g = intensity.clamp(pixel_color.y);
     let b = intensity.clamp(pixel_color.z);
+
+    let r = linear_to_gamma(r);
+    let g = linear_to_gamma(g);
+    let b = linear_to_gamma(b);
 
     #[allow(clippy::cast_possible_truncation)]
     #[allow(clippy::cast_sign_loss)]
