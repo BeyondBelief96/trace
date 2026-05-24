@@ -202,7 +202,8 @@ impl Camera {
     /// a simple sky gradient.
     fn ray_color(r: &Ray, world: &dyn Hittable) -> Color {
         if let Some(rec) = world.hit(r, Interval::new(0.0, f64::INFINITY)) {
-            return 0.5 * Color::new(rec.normal.x + 1.0, rec.normal.y + 1.0, rec.normal.z + 1.0);
+            let direction = Vec3::random_on_hemisphere(&rec.normal);
+            return 0.5 * Self::ray_color(&Ray::new(rec.point, direction), world);
         }
 
         let unit_direction = r.direction.unit_vector();

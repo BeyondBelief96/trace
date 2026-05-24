@@ -127,9 +127,18 @@ impl Vec3 {
     pub fn random_unit_vector() -> Self {
         loop {
             let p = Vec3::random_in_range(-1.0, 1.0);
-            if p.length_squared() <= 1.0 {
+            if 1e-160 < p.length_squared() && p.length_squared() <= 1.0 {
                 return p.unit_vector();
             }
+        }
+    }
+
+    pub fn random_on_hemisphere(normal: &Vec3) -> Self {
+        let on_unit_sphere = Vec3::random_unit_vector();
+        if on_unit_sphere.dot(*normal) > 0.0 {
+            on_unit_sphere
+        } else {
+            -on_unit_sphere
         }
     }
 }
