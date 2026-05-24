@@ -46,6 +46,8 @@ pub struct CameraBuilder {
     pub image_width: u32,
     /// Number of jittered rays cast per output pixel (anti-aliasing).
     pub samples_per_pixel: u32,
+    /// Maximum number of ray bounces into the scene.
+    pub maximum_depth: u32,
 }
 
 impl CameraBuilder {
@@ -55,6 +57,7 @@ impl CameraBuilder {
             aspect_ratio: 16.0 / 9.0,
             image_width: 400,
             samples_per_pixel: 10,
+            maximum_depth: 10,
         }
     }
 
@@ -73,6 +76,12 @@ impl CameraBuilder {
     /// Sets the number of jittered samples taken per pixel.
     pub const fn samples_per_pixel(mut self, samples_per_pixel: u32) -> Self {
         self.samples_per_pixel = samples_per_pixel;
+        self
+    }
+
+    /// Sets the maximum number of ray bounces into the scene.
+    pub const fn maximum_depth(mut self, maximum_depth: u32) -> Self {
+        self.maximum_depth = maximum_depth;
         self
     }
 
@@ -125,6 +134,7 @@ impl CameraBuilder {
             pixel_delta_v,
             samples_per_pixel: self.samples_per_pixel,
             pixel_samples_scale: 1.0 / f64::from(self.samples_per_pixel),
+            maximum_depth: self.maximum_depth,
         }
     }
 }
@@ -135,6 +145,7 @@ impl Default for CameraBuilder {
             aspect_ratio: 16.0 / 9.0,
             image_width: 400,
             samples_per_pixel: 10,
+            maximum_depth: 10,
         }
     }
 }
@@ -161,6 +172,8 @@ pub struct Camera {
     samples_per_pixel: u32,
     /// `1 / samples_per_pixel`, cached to turn the per-pixel sum into a mean.
     pixel_samples_scale: f64,
+    /// Maximum recursion depth for ray tracing.
+    maximum_depth: u32,
 }
 
 impl Camera {
@@ -181,7 +194,7 @@ impl Camera {
                 let mut pixel_color = Color::default();
                 for _ in 0..self.samples_per_pixel {
                     let ray = self.get_ray(i, j);
-                    pixel_color += Self::ray_color(&ray, world)
+                    pixel_color += Self::ray_color(&ray, world, self.maximum_depth)
                 }
                 write_color(writer, pixel_color * self.pixel_samples_scale)?;
             }
@@ -200,10 +213,14 @@ impl Camera {
     /// miss, the ray's normalized `y` component drives a vertical
     /// lerp from white at the horizon to a pale blue overhead, producing
     /// a simple sky gradient.
-    fn ray_color(r: &Ray, world: &dyn Hittable) -> Color {
+    fn ray_color(r: &Ray, world: &dyn Hittable, depth: u32) -> Color {
+        if depth <= 0 {
+            return Color::new(0.0, 0.0, 0.0);
+        }
+
         if let Some(rec) = world.hit(r, Interval::new(0.0, f64::INFINITY)) {
             let direction = Vec3::random_on_hemisphere(&rec.normal);
-            return 0.5 * Self::ray_color(&Ray::new(rec.point, direction), world);
+            return 0.5 * Self::ray_color(&Ray::new(rec.point, direction), world, depth - 1);
         }
 
         let unit_direction = r.direction.unit_vector();
