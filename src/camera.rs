@@ -32,26 +32,17 @@ use crate::{
     vec3::{Point3, Vec3},
 };
 
-/// Fluent builder for [`Camera`].
-///
-/// Each setter consumes and returns `Self`, so calls can be chained. Call
-/// [`CameraBuilder::build`] to compute the derived viewport geometry and
-/// produce a ready-to-use [`Camera`].
+/// Fluent builder for [`Camera`]. Each setter consumes and returns `Self`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CameraBuilder {
-    /// Ratio of image width to image height.
     pub aspect_ratio: f64,
-    /// Output image width in pixels. The height is derived from this and
-    /// `aspect_ratio`, with a floor of 1.
     pub image_width: u32,
-    /// Number of jittered rays cast per output pixel (anti-aliasing).
     pub samples_per_pixel: u32,
-    /// Maximum number of ray bounces into the scene.
     pub maximum_depth: u32,
 }
 
 impl CameraBuilder {
-    /// Creates a builder pre-populated with the default camera settings.
+    /// Builder pre-populated with default settings.
     pub fn new() -> Self {
         Self {
             aspect_ratio: 16.0 / 9.0,
@@ -61,38 +52,32 @@ impl CameraBuilder {
         }
     }
 
-    /// Sets the target aspect ratio (width / height).
     pub const fn aspect_ratio(mut self, aspect_ratio: f64) -> Self {
         self.aspect_ratio = aspect_ratio;
         self
     }
 
-    /// Sets the output image width in pixels.
     pub const fn image_width(mut self, image_width: u32) -> Self {
         self.image_width = image_width;
         self
     }
 
-    /// Sets the number of jittered samples taken per pixel.
     pub const fn samples_per_pixel(mut self, samples_per_pixel: u32) -> Self {
         self.samples_per_pixel = samples_per_pixel;
         self
     }
 
-    /// Sets the maximum number of ray bounces into the scene.
     pub const fn maximum_depth(mut self, maximum_depth: u32) -> Self {
         self.maximum_depth = maximum_depth;
         self
     }
 
-    /// Finalizes the builder, computing viewport geometry and producing
-    /// a [`Camera`].
+    /// Computes viewport geometry and returns a ready [`Camera`].
     ///
-    /// Image height is derived from `image_width / aspect_ratio` and
-    /// clamped up to at least 1, because very wide aspect ratios can
-    /// otherwise truncate to zero. Viewport dimensions are then computed
-    /// from the *actual* integer image dimensions rather than the target
-    /// aspect ratio, so the pixels stay square even after that rounding.
+    /// Image height is `image_width / aspect_ratio`, floored at 1 (very
+    /// wide ratios can otherwise truncate to zero). The viewport is sized
+    /// from the *actual* integer image dimensions so pixels stay square
+    /// after rounding.
     pub fn build(self) -> Camera {
         #[allow(clippy::cast_possible_truncation)]
         #[allow(clippy::cast_sign_loss)]
@@ -150,40 +135,28 @@ impl Default for CameraBuilder {
     }
 }
 
-/// A configured camera ready to render a scene.
-///
-/// Construct one via [`CameraBuilder`]; the fields are private because
-/// they have to satisfy invariants (matching deltas, derived height,
-/// precomputed sample scale) that the builder enforces.
+/// A configured camera ready to render a scene. Construct via
+/// [`CameraBuilder`]; fields are private because they must satisfy
+/// invariants the builder enforces (matching deltas, derived height,
+/// precomputed sample scale).
 pub struct Camera {
-    /// Rendered image width in pixels.
     image_width: u32,
-    /// Rendered image height in pixels (derived from width and aspect ratio).
     image_height: u32,
-    /// World-space position of the camera.
     center: Point3,
-    /// World-space center of the pixel at column 0, row 0.
+    /// World-space center of pixel (0, 0).
     pixel00_location: Point3,
-    /// World-space step from one pixel to the next along a row.
+    /// World-space step between adjacent pixels in a row / column.
     pixel_delta_u: Vec3,
-    /// World-space step from one row to the next.
     pixel_delta_v: Vec3,
-    /// Number of jittered rays cast per pixel.
     samples_per_pixel: u32,
-    /// `1 / samples_per_pixel`, cached to turn the per-pixel sum into a mean.
+    /// `1 / samples_per_pixel`, cached for averaging the per-pixel sum.
     pixel_samples_scale: f64,
-    /// Maximum recursion depth for ray tracing.
     maximum_depth: u32,
 }
 
 impl Camera {
-    /// Renders `world` to `writer` as a PPM (P3) image.
-    ///
-    /// Writes a PPM header (`P3 <w> <h> 255`), then, for each pixel,
-    /// averages `samples_per_pixel` jittered rays through that pixel and
-    /// emits the result via [`write_color`]. Progress is reported to
-    /// stderr a scanline at a time so the rendered image on stdout stays
-    /// clean.
+    /// Renders `world` to `writer` as a PPM (P3) image. Progress is logged
+    /// to stderr a scanline at a time.
     pub fn render<W: Write>(&self, world: &dyn Hittable, writer: &mut W) -> io::Result<()> {
         writeln!(writer, "P3")?;
         writeln!(writer, "{} {}", self.image_width, self.image_height)?;
@@ -205,14 +178,12 @@ impl Camera {
         Ok(())
     }
 
-    /// Returns the color seen along `r`.
+    /// Recursively traces `r`, returning the color it carries back.
     ///
-    /// On a hit, the surface normal (in `[-1, 1]³`) is remapped into
-    /// `[0, 1]³` and used directly as RGB — a debug shading useful for
-    /// confirming that geometry and normals are oriented correctly. On a
-    /// miss, the ray's normalized `y` component drives a vertical
-    /// lerp from white at the horizon to a pale blue overhead, producing
-    /// a simple sky gradient.
+    /// On a hit, the surface's material decides how to scatter; the
+    /// scattered ray's color is multiplied by the attenuation. On a miss,
+    /// returns a vertical sky gradient (white → pale blue). Bottoms out
+    /// at black when `depth` reaches zero or scattering fails.
     fn ray_color(r: &Ray, world: &dyn Hittable, depth: u32) -> Color {
         if depth <= 0 {
             return Color::new(0.0, 0.0, 0.0);
@@ -233,8 +204,7 @@ impl Camera {
         (1.0 - a) * Color::new(1.0, 1.0, 1.0) + a * Color::new(0.5, 0.7, 1.0)
     }
 
-    /// Constructs a camera ray through pixel `(i, j)`, jittered by a
-    /// random sub-pixel offset for anti-aliasing.
+    /// Camera ray through pixel `(i, j)`, jittered for anti-aliasing.
     fn get_ray(&self, i: u32, j: u32) -> Ray {
         let offset = Self::sample_square();
         let pixel_sample = self.pixel00_location
@@ -245,8 +215,7 @@ impl Camera {
         Ray::new(ray_origin, ray_direction)
     }
 
-    /// Returns a uniformly random offset inside the unit square centered
-    /// on the origin: `x, y ∈ [-0.5, 0.5)`, with `z = 0`.
+    /// Uniform random offset in `[-0.5, 0.5)² × {0}`.
     fn sample_square() -> Point3 {
         Point3::new(
             rand::random::<f64>() - 0.5,

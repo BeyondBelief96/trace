@@ -1,4 +1,13 @@
-//! Sphere primitive and its ray-intersection routine.
+//! Sphere primitive.
+//!
+//! Intersection uses the standard quadratic: a point `P` is on the sphere
+//! when `(P - center)·(P - center) = r²`. Substituting `P = origin + t·d`
+//! and letting `oc = center - origin` gives
+//! `(d·d) t² - 2(d·oc) t + (oc·oc - r²) = 0`. Setting `h = d·oc` drops the
+//! factor of 2 from the quadratic formula:
+//! `t = (h ± sqrt(h² - a·c)) / a`, with `a = d·d`, `c = oc·oc - r²`. A
+//! negative discriminant means a miss; otherwise the nearer root is tried
+//! first and the farther root is the fallback.
 
 use std::sync::Arc;
 
@@ -9,10 +18,8 @@ use crate::{
     vec3::Vec3,
 };
 
-/// A sphere defined by a center point and a radius.
-///
-/// Negative radii are accepted and produce "inside-out" spheres — useful
-/// for hollow shapes where the outward normal should point inward.
+/// A sphere defined by a center, radius, and material. Negative radii
+/// produce "inside-out" spheres useful for hollow shapes.
 #[derive(Clone, Debug)]
 pub struct Sphere {
     pub center: Vec3,
@@ -21,7 +28,7 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    /// Constructs a sphere from its center and radius.
+    /// Constructs a sphere.
     pub const fn new(center: Vec3, radius: f64, material: Arc<dyn Material>) -> Self {
         Self {
             center,
@@ -32,29 +39,6 @@ impl Sphere {
 }
 
 impl Hittable for Sphere {
-    /// Intersects a ray with this sphere and returns the nearest hit
-    /// whose `t` parameter lies strictly inside `t_interval`.
-    ///
-    /// Derivation: a point `P` is on the sphere when
-    /// `(P - center) · (P - center) = radius²`. Substituting the ray
-    /// `P = origin + t·d` and letting `oc = center - origin` yields a
-    /// quadratic in `t`:
-    ///
-    /// ```text
-    /// (d·d) t² - 2 (d·oc) t + (oc·oc - r²) = 0
-    /// ```
-    ///
-    /// Setting `h = d·oc` lets us drop the factor of 2 from the standard
-    /// quadratic formula:
-    ///
-    /// ```text
-    /// t = (h ± sqrt(h² - a·c)) / a       where a = d·d, c = oc·oc - r²
-    /// ```
-    ///
-    /// A negative discriminant means the ray misses the sphere entirely.
-    /// Otherwise the smaller root is tried first (the nearer intersection);
-    /// if it falls outside `t_interval`, the farther root is tried before
-    /// giving up.
     fn hit(&self, r: &crate::ray::Ray, t_interval: Interval) -> Option<crate::hittable::HitRecord> {
         let oc = self.center - r.origin;
         let a = r.direction.length_squared();

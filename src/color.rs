@@ -1,23 +1,18 @@
 //! RGB colors and PPM pixel output.
 //!
-//! [`Color`] is a type alias over [`Vec3`], so the full set of vector
-//! arithmetic — addition for accumulating samples, scalar multiplication
-//! for averaging, and the Hadamard product for attenuation — applies
-//! directly to colors. Component conventions:
-//! - `x` → red, `y` → green, `z` → blue
-//! - linear, unbounded; values are clamped to `[0, 1)` only at output
-//!   time by [`write_color`].
+//! [`Color`] aliases [`Vec3`], so vector arithmetic applies directly:
+//! addition for accumulating samples, scalar multiplication for averaging,
+//! Hadamard product for attenuation. Channels map `x → R`, `y → G`,
+//! `z → B`. Values are linear and unbounded until [`write_color`] clamps
+//! and gamma-corrects them at output time.
 
 use crate::{interval::Interval, vec3::Vec3};
 use std::io::{self, Write};
 
-/// A linear RGB color stored as three `f64` components.
-///
-/// Aliased to [`Vec3`] so all vector operations are available. Components
-/// are not gamma-corrected and are not clamped until conversion to bytes.
+/// Linear RGB color (`x → R`, `y → G`, `z → B`). Not gamma-corrected.
 pub type Color = Vec3;
 
-/// Converts a linear RGB component to a gamma-corrected value.
+/// Gamma-2 correction: `sqrt(linear)`. Negative inputs map to zero.
 pub fn linear_to_gamma(linear_component: f64) -> f64 {
     if linear_component <= 0.0 {
         return 0.0;
@@ -26,12 +21,11 @@ pub fn linear_to_gamma(linear_component: f64) -> f64 {
     linear_component.sqrt()
 }
 
-/// Writes a single pixel to `writer` in PPM (P3) "R G B\n" text format.
+/// Writes one pixel as PPM (P3) `"R G B\n"`.
 ///
-/// Components are clamped to the half-open intensity range `[0, 0.999]`
-/// before being scaled by 256 and truncated to `u8`. The half-open upper
-/// bound ensures the multiplication can never produce the value 256,
-/// which would overflow when cast to `u8`.
+/// Each channel is clamped to `[0, 0.999)`, gamma-corrected, then scaled
+/// by 256 and truncated to `u8`. The half-open upper bound prevents the
+/// scaled value from ever reaching 256 and overflowing the cast.
 pub fn write_color(writer: &mut impl Write, pixel_color: Color) -> io::Result<()> {
     let intensity = Interval::new(0.000, 0.999);
     let r = intensity.clamp(pixel_color.x);

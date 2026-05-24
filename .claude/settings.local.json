@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(powershell *)",
-      "Bash(cargo build *)"
+      "Bash(cargo build *)",
+      "Bash(git mv *)",
+      "Bash(cargo check *)"
     ]
   }
 }

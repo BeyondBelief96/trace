@@ -10,19 +10,16 @@ mod camera;
 mod color;
 mod hittable;
 mod interval;
-mod lambertian;
 mod material;
-mod metal;
 mod ray;
-mod sphere;
 mod vec3;
 mod world;
 
 use crate::camera::CameraBuilder;
 use crate::color::Color;
-use crate::lambertian::Lambertian;
-use crate::metal::Metal;
-use crate::sphere::Sphere;
+use crate::hittable::sphere::Sphere;
+use crate::material::lambertian::Lambertian;
+use crate::material::metal::Metal;
 use crate::vec3::Point3;
 use crate::world::World;
 use std::fs::File;
@@ -33,8 +30,8 @@ fn main() -> std::io::Result<()> {
     let mut world = World::new();
     let material_ground = Arc::new(Lambertian::new(Color::new(0.8, 0.8, 0.0)));
     let material_center = Arc::new(Lambertian::new(Color::new(0.1, 0.2, 0.5)));
-    let material_left = Arc::new(Metal::new(Color::new(0.8, 0.8, 0.8)));
-    let material_right = Arc::new(Metal::new(Color::new(0.8, 0.6, 0.2)));
+    let material_left = Arc::new(Metal::new(Color::new(0.8, 0.8, 0.8), 0.7));
+    let material_right = Arc::new(Metal::new(Color::new(0.8, 0.6, 0.2), 0.1));
     world.add(Sphere::new(
         Point3::new(0.0, -100.5, -1.0),
         100.0,
@@ -59,7 +56,7 @@ fn main() -> std::io::Result<()> {
 
     let camera = CameraBuilder::new()
         .aspect_ratio(16.0 / 9.0)
-        .image_width(1920)
+        .image_width(400)
         .samples_per_pixel(100)
         .maximum_depth(50)
         .build();
