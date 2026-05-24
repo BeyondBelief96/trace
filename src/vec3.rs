@@ -16,6 +16,11 @@ use std::ops::{
 use std::fmt::Display;
 
 /// Alias for [`Vec3`] used for positions rather than directions.
+///
+/// Same underlying type — the alias only signals intent. Because it's an
+/// alias and not a newtype, the compiler will not catch nonsensical
+/// operations like adding two points or dotting a position with a
+/// direction. Upgrade to a newtype if that becomes a real source of bugs.
 pub type Point3 = Vec3;
 
 /// A 3D vector with `f64` components.
@@ -88,6 +93,10 @@ impl Vec3 {
     /// cube sample would bias directions toward the cube's eight corners;
     /// sampling from the (rotationally symmetric) ball removes that bias.
     /// Rejection rate is ~48% (`1 - π/6`), so the loop is effectively O(1).
+    ///
+    /// The `1e-160` lower bound on `length_squared` rejects denormal-tiny
+    /// samples whose square root would underflow to zero, making the
+    /// subsequent normalization divide by zero and return infinities.
     pub fn random_unit_vector() -> Self {
         loop {
             let p = Vec3::random_in_range(-1.0, 1.0);
@@ -115,9 +124,38 @@ impl Vec3 {
         self.x.abs() < 1e-8 && self.y.abs() < 1e-8 && self.z.abs() < 1e-8
     }
 
-    /// Reflects `self` about `normal`. `normal` is assumed unit length.
+    /// Reflects `self` about `normal`.
+    ///
+    /// Convention: `self` is the incident direction pointing *into* the
+    /// surface, and `normal` points *out* of the surface (same side as the
+    /// incoming ray). Both are assumed to be unit length — the formula
+    /// `R - 2(R·n)n` only produces a unit-length result when they are.
     pub fn reflect(&self, normal: &Vec3) -> Self {
         *self - 2.0 * self.dot(*normal) * *normal
+    }
+
+    /// Refracts `self` through a surface using Snell's law.
+    ///
+    /// `etai_over_etat` is the **ratio** η/η' — incident medium's index of
+    /// refraction divided by the transmitted medium's — not a single
+    /// material's IOR. For a ray entering glass (η'=1.5) from air (η=1.0),
+    /// pass `1.0 / 1.5`; for the reverse, pass `1.5 / 1.0`.
+    ///
+    /// Convention: `self` is the incident direction pointing *into* the
+    /// surface, and `normal` points *out* of the surface (same side as the
+    /// incoming ray). Both `self` and `normal` must be unit length — the
+    /// derivation cancels their magnitudes, so non-unit inputs produce a
+    /// silently wrong result.
+    ///
+    /// Does **not** handle total internal reflection. When
+    /// `etai_over_etat * sin(θ) > 1` refraction is physically impossible
+    /// and the inner `sqrt` produces `NaN`. The caller (typically a
+    /// dielectric material) must detect that case and reflect instead.
+    pub fn refract(&self, normal: &Vec3, etai_over_etat: f64) -> Self {
+        let cos_theta = (-1.0 * self.dot(*normal)).min(1.0);
+        let r_out_perp = etai_over_etat * (*self + cos_theta * *normal);
+        let r_out_parallel = -1.0 * (1.0 - r_out_perp.length_squared()).sqrt();
+        r_out_perp + r_out_parallel * *normal
     }
 }
 
@@ -163,6 +201,8 @@ impl Mul<Vec3> for Vec3 {
     }
 }
 
+/// Scalar–vector multiplication. The mirror impls below let you write the
+/// scalar on either side: both `2.0 * v` and `v * 2.0` compile.
 impl Mul<Vec3> for i32 {
     type Output = Vec3;
 

@@ -8,6 +8,7 @@
 //! Concrete implementations live in submodules — see [`lambertian`] and
 //! [`metal`].
 
+pub mod dielectric;
 pub mod lambertian;
 pub mod metal;
 
