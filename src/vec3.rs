@@ -133,6 +133,7 @@ impl Vec3 {
         }
     }
 
+    /// Returns a random unit vector on the hemisphere with the given normal.
     pub fn random_on_hemisphere(normal: &Vec3) -> Self {
         let on_unit_sphere = Vec3::random_unit_vector();
         if on_unit_sphere.dot(*normal) > 0.0 {
@@ -140,6 +141,16 @@ impl Vec3 {
         } else {
             -on_unit_sphere
         }
+    }
+
+    /// Returns `true` if the vector is near zero, i.e. all components are within `1e-8` of zero.
+    pub fn near_zero(&self) -> bool {
+        self.x.abs() < 1e-8 && self.y.abs() < 1e-8 && self.z.abs() < 1e-8
+    }
+
+    /// Returns the reflection of this vector about the given normal.
+    pub fn reflect(&self, normal: &Vec3) -> Self {
+        *self - 2.0 * self.dot(*normal) * *normal
     }
 }
 

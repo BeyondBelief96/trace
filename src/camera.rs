@@ -220,8 +220,12 @@ impl Camera {
 
         // 0.001 is to avoid shadow acne.
         if let Some(rec) = world.hit(r, Interval::new(0.001, f64::INFINITY)) {
-            let direction = rec.normal + Vec3::random_unit_vector();
-            return 0.5 * Self::ray_color(&Ray::new(rec.point, direction), world, depth - 1);
+            let scattered = rec.material.scatter(&r, &rec);
+            if let Some(scattered) = scattered {
+                return scattered.attenuation * Self::ray_color(&scattered.ray, world, depth - 1);
+            }
+
+            return Color::new(0.0, 0.0, 0.0);
         }
 
         let unit_direction = r.direction.unit_vector();

@@ -4,10 +4,11 @@
 //! (spheres, collections of objects, …), and [`HitRecord`], the bundle of
 //! information returned at the closest valid intersection.
 
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 
 use crate::{
     interval::Interval,
+    material::Material,
     ray::Ray,
     vec3::{Point3, Vec3},
 };
@@ -18,12 +19,13 @@ use crate::{
 /// `front_face` recording whether that direction matched the surface's
 /// outward normal. This lets shading code treat both sides of a surface
 /// uniformly while still knowing which side the ray came from.
-#[derive(Debug, Copy, Clone, PartialEq, Default)]
+#[derive(Clone)]
 pub struct HitRecord {
     /// Point of intersection in world space.
     pub point: Point3,
     /// Surface normal at `point`, oriented against the ray's direction.
     pub normal: Vec3,
+    pub material: Arc<dyn Material>,
     /// Ray parameter at which the hit occurred (`ray.at(t) == point`).
     pub t: f64,
     /// `true` if the ray hit the outward-facing side of the surface.
@@ -39,7 +41,13 @@ impl HitRecord {
     /// whether the ray struck the front face by checking the sign of
     /// `direction · outward_normal`; the stored normal is flipped on
     /// back-face hits so consumers can dot against it directly.
-    pub fn new(point: Point3, t: f64, r: &Ray, outward_normal: Vec3) -> Self {
+    pub fn new(
+        point: Point3,
+        t: f64,
+        r: &Ray,
+        outward_normal: Vec3,
+        material: Arc<dyn Material>,
+    ) -> Self {
         let front_face = r.direction.dot(outward_normal) < 0.0;
         Self {
             point,
@@ -48,6 +56,7 @@ impl HitRecord {
             } else {
                 -outward_normal
             },
+            material,
             t,
             front_face,
         }

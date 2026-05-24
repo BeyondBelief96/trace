@@ -1,8 +1,11 @@
 //! Sphere primitive and its ray-intersection routine.
 
+use std::sync::Arc;
+
 use crate::{
     hittable::{HitRecord, Hittable},
     interval::Interval,
+    material::Material,
     vec3::Vec3,
 };
 
@@ -10,16 +13,21 @@ use crate::{
 ///
 /// Negative radii are accepted and produce "inside-out" spheres — useful
 /// for hollow shapes where the outward normal should point inward.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Debug)]
 pub struct Sphere {
     pub center: Vec3,
     pub radius: f64,
+    pub material: Arc<dyn Material>,
 }
 
 impl Sphere {
     /// Constructs a sphere from its center and radius.
-    pub const fn new(center: Vec3, radius: f64) -> Self {
-        Self { center, radius }
+    pub const fn new(center: Vec3, radius: f64, material: Arc<dyn Material>) -> Self {
+        Self {
+            center,
+            radius,
+            material,
+        }
     }
 }
 
@@ -68,6 +76,12 @@ impl Hittable for Sphere {
 
         let point = r.at(root);
         let outward_normal = (point - self.center) / self.radius;
-        Some(HitRecord::new(point, root, r, outward_normal))
+        Some(HitRecord::new(
+            point,
+            root,
+            r,
+            outward_normal,
+            Arc::clone(&self.material),
+        ))
     }
 }

@@ -17,6 +17,7 @@ use std::io::{self, Write};
 /// are not gamma-corrected and are not clamped until conversion to bytes.
 pub type Color = Vec3;
 
+/// Converts a linear RGB component to a gamma-corrected value.
 pub fn linear_to_gamma(linear_component: f64) -> f64 {
     if linear_component <= 0.0 {
         return 0.0;
