@@ -1,10 +1,28 @@
+//! RGB colors and PPM pixel output.
+//!
+//! [`Color`] is a type alias over [`Vec3`], so the full set of vector
+//! arithmetic — addition for accumulating samples, scalar multiplication
+//! for averaging, and the Hadamard product for attenuation — applies
+//! directly to colors. Component conventions:
+//! - `x` → red, `y` → green, `z` → blue
+//! - linear, unbounded; values are clamped to `[0, 1)` only at output
+//!   time by [`write_color`].
+
 use crate::{interval::Interval, vec3::Vec3};
 use std::io::{self, Write};
 
+/// A linear RGB color stored as three `f64` components.
+///
+/// Aliased to [`Vec3`] so all vector operations are available. Components
+/// are not gamma-corrected and are not clamped until conversion to bytes.
 pub type Color = Vec3;
 
-/// Writes the given pixel color to the given output stream.
-/// Clamps the pixel color components to the range [0, 1] before writing.
+/// Writes a single pixel to `writer` in PPM (P3) "R G B\n" text format.
+///
+/// Components are clamped to the half-open intensity range `[0, 0.999]`
+/// before being scaled by 256 and truncated to `u8`. The half-open upper
+/// bound ensures the multiplication can never produce the value 256,
+/// which would overflow when cast to `u8`.
 pub fn write_color(writer: &mut impl Write, pixel_color: Color) -> io::Result<()> {
     let intensity = Interval::new(0.000, 0.999);
     let r = intensity.clamp(pixel_color.x);
