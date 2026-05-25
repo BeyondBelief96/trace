@@ -21,7 +21,7 @@ use crate::hittable::sphere::Sphere;
 use crate::material::dielectric::Dielectric;
 use crate::material::lambertian::Lambertian;
 use crate::material::metal::Metal;
-use crate::vec3::Point3;
+use crate::vec3::{Point3, Vec3};
 use crate::world::World;
 use std::fs::File;
 use std::io::BufWriter;
@@ -63,9 +63,15 @@ fn main() -> std::io::Result<()> {
 
     let camera = CameraBuilder::new()
         .aspect_ratio(16.0 / 9.0)
-        .image_width(400)
+        .image_width(1920)
         .samples_per_pixel(100)
         .maximum_depth(50)
+        .vertical_fov_deg(20.0)
+        .look_from(Point3::new(-2.0, 2.0, 1.0))
+        .look_at(Point3::new(0.0, 0.0, -1.0))
+        .up(Vec3::new(0.0, 1.0, 0.0))
+        .defocus_angle_deg(10.0)
+        .focus_distance(3.4)
         .build();
 
     let file = File::create("image.ppm")?;

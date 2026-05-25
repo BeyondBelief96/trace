@@ -116,6 +116,27 @@ impl Vec3 {
         }
     }
 
+    /// Uniformly random point inside the unit disk in the xy plane (`z = 0`).
+    ///
+    /// Rejection sampling — same idea as [`random_unit_vector`], one
+    /// dimension lower. Used to pick lens-disk origins for defocus blur.
+    /// Returns an *interior* point (no normalization); the caller scales
+    /// it by the disk's basis vectors to land on the actual lens.
+    ///
+    /// [`random_unit_vector`]: Vec3::random_unit_vector
+    pub fn random_in_unit_disk() -> Self {
+        loop {
+            let p = Vec3::new(
+                rand::random_range(-1.0..1.0),
+                rand::random_range(-1.0..1.0),
+                0.0,
+            );
+            if p.length_squared() < 1.0 {
+                return p;
+            }
+        }
+    }
+
     /// Returns `true` if every component is within `1e-8` of zero.
     ///
     /// Use when a vector is about to be normalized — `unit_vector()` on

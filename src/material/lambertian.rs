@@ -12,7 +12,7 @@ use crate::{
     vec3::Vec3,
 };
 
-/// Matte surface defined by its albedo (per-channel reflectance in `[0, 1]`).
+/// Matte/Diffuse surface defined by its albedo (per-channel reflectance in `[0, 1]`).
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Lambertian {
     pub albedo: Color,
