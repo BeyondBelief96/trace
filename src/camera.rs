@@ -33,10 +33,9 @@
 //! is plain box-filter supersampling — cheap, and enough to smooth the
 //! hard staircase you'd get from a single ray per pixel.
 
-use std::io::{self, Write};
-
 use crate::{
-    color::{Color, write_color},
+    color::Color,
+    framebuffer::Framebuffer,
     hittable::Hittable,
     interval::Interval,
     ray::Ray,
@@ -266,27 +265,26 @@ pub struct Camera {
 }
 
 impl Camera {
-    /// Renders `world` to `writer` as a PPM (P3) image. Progress is logged
-    /// to stderr a scanline at a time.
-    pub fn render<W: Write>(&self, world: &dyn Hittable, writer: &mut W) -> io::Result<()> {
-        writeln!(writer, "P3")?;
-        writeln!(writer, "{} {}", self.image_width, self.image_height)?;
-        writeln!(writer, "255")?;
+    /// Renders `world` into an in-memory [`Framebuffer`]. Caller is
+    /// responsible for serializing it (see `framebuffer::write_ppm` /
+    /// `write_png`) — keeps the renderer ignorant of output format and
+    /// lets a single trace produce multiple files. Scanline progress is
+    /// logged to stderr.
+    pub fn render(&self, world: &dyn Hittable) -> Framebuffer {
+        let mut framebuffer = Framebuffer::new(self.image_width, self.image_height);
         for j in 0..self.image_height {
             eprintln!("Scanlines remaining: {}", self.image_height - j);
             for i in 0..self.image_width {
                 let mut pixel_color = Color::default();
                 for _ in 0..self.samples_per_pixel {
                     let ray = self.get_ray(i, j);
-                    pixel_color += Self::ray_color(&ray, world, self.maximum_depth)
+                    pixel_color += Self::ray_color(&ray, world, self.maximum_depth);
                 }
-                write_color(writer, pixel_color * self.pixel_samples_scale)?;
+                framebuffer.set_pixel(i, j, pixel_color * self.pixel_samples_scale);
             }
         }
-
-        writer.flush()?;
-        println!("\n Done!");
-        Ok(())
+        eprintln!("Done!");
+        framebuffer
     }
 
     /// Recursively traces `r`, returning the color it carries back.

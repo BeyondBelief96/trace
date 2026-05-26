@@ -1,13 +1,13 @@
-//! RGB colors and PPM pixel output.
+//! RGB colors and the linear → 8-bit conversion shared by every encoder.
 //!
 //! [`Color`] aliases [`Vec3`], so vector arithmetic applies directly:
 //! addition for accumulating samples, scalar multiplication for averaging,
 //! Hadamard product for attenuation. Channels map `x → R`, `y → G`,
-//! `z → B`. Values are linear and unbounded until [`write_color`] clamps
-//! and gamma-corrects them at output time.
+//! `z → B`. Values are linear and unbounded; [`color_to_rgb8`] clamps and
+//! gamma-corrects them on the way out to whichever image format we're
+//! producing (see `framebuffer.rs`).
 
 use crate::{interval::Interval, vec3::Vec3};
-use std::io::{self, Write};
 
 /// Linear RGB color (`x → R`, `y → G`, `z → B`). Not gamma-corrected.
 pub type Color = Vec3;
@@ -21,30 +21,28 @@ pub fn linear_to_gamma(linear_component: f64) -> f64 {
     linear_component.sqrt()
 }
 
-/// Writes one pixel as PPM (P3) `"R G B\n"`.
+/// Converts a single linear channel to an 8-bit gamma-corrected byte.
 ///
-/// Each channel is clamped to `[0, 0.999)`, gamma-corrected, then scaled
-/// by 256 and truncated to `u8`. The half-open upper bound prevents the
-/// scaled value from ever reaching 256 and overflowing the cast.
-pub fn write_color(writer: &mut impl Write, pixel_color: Color) -> io::Result<()> {
+/// Clamps to `[0, 0.999]`, applies gamma-2 correction, then scales by 256
+/// and truncates. The half-open upper bound prevents the scaled value
+/// from ever reaching 256 and overflowing the `u8` cast.
+#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_sign_loss)]
+fn channel_to_byte(linear: f64) -> u8 {
     let intensity = Interval::new(0.000, 0.999);
-    let r = intensity.clamp(pixel_color.x);
-    let g = intensity.clamp(pixel_color.y);
-    let b = intensity.clamp(pixel_color.z);
+    let clamped = intensity.clamp(linear);
+    let corrected = linear_to_gamma(clamped);
+    (corrected * 256.0) as u8
+}
 
-    let r = linear_to_gamma(r);
-    let g = linear_to_gamma(g);
-    let b = linear_to_gamma(b);
-
-    #[allow(clippy::cast_possible_truncation)]
-    #[allow(clippy::cast_sign_loss)]
-    let rbyte: u8 = (r * 256.0) as u8;
-    #[allow(clippy::cast_possible_truncation)]
-    #[allow(clippy::cast_sign_loss)]
-    let gbyte: u8 = (g * 256.0) as u8;
-    #[allow(clippy::cast_possible_truncation)]
-    #[allow(clippy::cast_sign_loss)]
-    let bbyte: u8 = (b * 256.0) as u8;
-
-    writeln!(writer, "{rbyte} {gbyte} {bbyte}")
+/// Converts a linear `Color` to a gamma-corrected `[r, g, b]` byte triple.
+///
+/// Shared by every output encoder so the gamma and clamp policy lives in
+/// exactly one place.
+pub fn color_to_rgb8(pixel_color: Color) -> [u8; 3] {
+    [
+        channel_to_byte(pixel_color.x),
+        channel_to_byte(pixel_color.y),
+        channel_to_byte(pixel_color.z),
+    ]
 }

@@ -5,3 +5,9 @@ edition = "2024"
 
 [dependencies]
 rand = "0.10.1"
+# PNG encoder for the output pipeline. Default features pulled in JPEG/BMP/etc.
+# we don't use; restrict to PNG only to keep build time and binary size down.
+image = { version = "0.25", default-features = false, features = ["png"] }
+# Local-time timestamps for output filenames. Only the clock feature is
+# needed — drops the rest of chrono's locale/serde/etc. machinery.
+chrono = { version = "0.4", default-features = false, features = ["clock"] }

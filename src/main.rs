@@ -8,6 +8,7 @@
 
 mod camera;
 mod color;
+mod framebuffer;
 mod hittable;
 mod interval;
 mod material;
@@ -17,15 +18,19 @@ mod world;
 
 use crate::camera::CameraBuilder;
 use crate::color::Color;
+use crate::framebuffer::{write_png, write_ppm};
 use crate::hittable::sphere::Sphere;
 use crate::material::dielectric::Dielectric;
 use crate::material::lambertian::Lambertian;
 use crate::material::metal::Metal;
 use crate::vec3::{Point3, Vec3};
 use crate::world::World;
-use std::fs::File;
-use std::io::BufWriter;
+use std::fs;
+use std::path::PathBuf;
 use std::sync::Arc;
+
+/// Directory where every rendered image is written. Created on demand.
+const OUTPUT_DIR: &str = "output";
 
 fn main() -> std::io::Result<()> {
     let world = build_scene();
@@ -43,9 +48,22 @@ fn main() -> std::io::Result<()> {
         .focus_distance(10.0)
         .build();
 
-    let file = File::create("image.ppm")?;
-    let mut writer = BufWriter::new(file);
-    camera.render(&world, &mut writer)?;
+    let framebuffer = camera.render(&world);
+
+    // Filenames share a single timestamp captured *after* the render so
+    // the PPM and PNG for one run always share a stem and sort next to
+    // each other on disk.
+    fs::create_dir_all(OUTPUT_DIR)?;
+    let stem = format!(
+        "image_{}",
+        chrono::Local::now().format("%Y%m%d_%H%M%S")
+    );
+    let ppm_path = PathBuf::from(OUTPUT_DIR).join(format!("{stem}.ppm"));
+    let png_path = PathBuf::from(OUTPUT_DIR).join(format!("{stem}.png"));
+
+    write_ppm(&framebuffer, &ppm_path)?;
+    write_png(&framebuffer, &png_path)?;
+    eprintln!("Wrote {} and {}", ppm_path.display(), png_path.display());
     Ok(())
 }
 
